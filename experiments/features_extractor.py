@@ -72,7 +72,6 @@ class GoalMlpExtractor(nn.Module):
         value_net: list[list[nn.Module]] =  [[] for _ in range(16)]
         last_layer_dim_pi = feature_dim
         last_layer_dim_vf = feature_dim
-        print(feature_dim)
 
         # save dimensions of layers in policy and value nets
         if isinstance(net_arch, dict):

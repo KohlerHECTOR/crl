@@ -28,10 +28,10 @@ def plot_results(log_folder, title="Learning Curve"):
     fig = plt.figure(title)
     plt.plot(x, y)
 
-for s in range(70):
+for s in range(1):
     plot_results(f'results_mt/bigger_head_gcrl_seed_{s}/')
 plt.xlabel("Number of Timesteps")
 plt.ylabel("Rewards")
 plt.title("MT learning Smoothed")
-plt.show()
+plt.savefig('fog')
 
