@@ -9,7 +9,68 @@ from joblib import Parallel, delayed
 from gymnasium import spaces
 import numpy as np
 import seaborn as sns
+from math import ceil
 
+
+def calculate_balanced_dims(target_bottleneck, n_flatten, target_params=None, reference_dims=(128, 128)):
+    """
+    Calculate the first layer size (dims[0]) to maintain the same number of parameters
+    when changing the bottleneck size (dims[1]).
+    
+    Args:
+        target_bottleneck: The desired bottleneck size (dims[1])
+        n_flatten: Number of flattened features from CNN
+        target_params: Target number of parameters (if None, uses reference_dims to calculate)
+        reference_dims: Reference architecture to calculate target parameters
+    
+    Returns:
+        tuple: (dims[0], target_bottleneck) where dims[0] is calculated to maintain parameter count
+    """
+    # Calculate target parameters from reference architecture
+    if target_params is None:
+        ref_dims0, ref_dims1 = reference_dims
+        # Parameters in linear layers: n_flatten * dims0 + dims0 + dims0 * dims1 + dims1 + dims1 * 128 + 128
+        target_params = (n_flatten * ref_dims0 + ref_dims0 + 
+                        ref_dims0 * ref_dims1 + ref_dims1 + 
+                        ref_dims1 * 128 + 128)
+    
+    # For the target bottleneck, we need to solve:
+    # n_flatten * dims0 + dims0 + dims0 * target_bottleneck + target_bottleneck + target_bottleneck * 128 + 128 = target_params
+    
+    # Rearranging: dims0 * (n_flatten + 1 + target_bottleneck) = target_params - target_bottleneck - target_bottleneck * 128 - 128
+    # dims0 = (target_params - target_bottleneck - target_bottleneck * 128 - 128) / (n_flatten + 1 + target_bottleneck)
+    
+    numerator = target_params - target_bottleneck - target_bottleneck * 128 - 128
+    denominator = n_flatten + 1 + target_bottleneck
+    
+    dims0 = ceil(numerator / denominator)
+    
+    # Ensure dims0 is at least 1
+    dims0 = max(1, dims0)
+    
+    return (dims0, target_bottleneck)
+
+
+def get_balanced_architectures(n_flatten, reference_dims=(128, 128)):
+    """
+    Generate a list of architectures with the same number of parameters
+    but different bottleneck sizes.
+    
+    Args:
+        n_flatten: Number of flattened features from CNN
+        reference_dims: Reference architecture to calculate target parameters
+    
+    Returns:
+        list: List of (dims[0], dims[1]) tuples with balanced parameters
+    """
+    bottleneck_sizes = [128, 64, 32, 16, 8, 4, 2]
+    architectures = []
+    
+    for bottleneck in bottleneck_sizes:
+        balanced_dims = calculate_balanced_dims(bottleneck, n_flatten, reference_dims=reference_dims)
+        architectures.append(balanced_dims)
+    
+    return architectures
 
 
 class BaseEnv(gym.Env):
@@ -123,13 +184,42 @@ def run_experiment(seed, dims, env_name):
     )
 
     model = DQN('MlpPolicy', env, **dqn_kwargs)
+    # print(len(model.policy.parameters_to_vector()))
     model.learn(1e7)
     model.save(f'{env_name}/arch_{dims[0]}/seed_{seed}/model')
 
-# Parallelize the loops
+# Calculate balanced architectures for each environment
+# We need to calculate n_flatten for each environment first
+def get_balanced_architectures_for_env(env_name, reference_dims=(128, 128)):
+    """Get balanced architectures for a specific environment"""
+    # Create a temporary environment to calculate n_flatten
+    temp_env = BaseEnv(env_name, use_minimal_action_set=True)
+    temp_extractor = MinatarFeaturesExtractor(temp_env.observation_space, reference_dims)
+    
+    # Calculate n_flatten
+    with torch.no_grad():
+        sample_obs = torch.as_tensor(temp_env.observation_space.sample()[None]).float()
+        sample_obs = sample_obs.permute(0, 3, 1, 2)
+        n_flatten = temp_extractor.cnn(sample_obs).shape[1]
+    
+    return get_balanced_architectures(n_flatten, reference_dims)
+
+# Generate balanced architectures for each environment
+env_names = ['breakout', 'asterix', 'space_invaders', 'freeway', 'seaquest']
+balanced_architectures = {}
+
+for env_name in env_names:
+    balanced_architectures[env_name] = get_balanced_architectures_for_env(env_name)
+
+# Print the balanced architectures for verification
+print("Balanced architectures for each environment:")
+for env_name, archs in balanced_architectures.items():
+    print(f"{env_name}: {archs}")
+
+# Parallelize the loops with balanced architectures
 Parallel(n_jobs=-1)(
     delayed(run_experiment)(seed, dims, env_name)
     for seed in range(10)
-    for dims in [(128, 128), (256, 64), (512, 32), (1024, 16), (2048, 8), (4096, 4), (8192, 2)]
-    for env_name in ['asterix', 'breakout', 'freeway', 'space_invaders', 'seaquest']
+    for env_name in env_names
+    for dims in balanced_architectures[env_name]
 )

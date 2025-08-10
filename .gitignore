@@ -7,3 +7,4 @@ experiments/results_mt/
 policies/
 experiments/bottlenecking/
 *.png
+*.csv
