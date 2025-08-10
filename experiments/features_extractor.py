@@ -57,6 +57,31 @@ class GoalMinigridFeaturesExtractor(BaseFeaturesExtractor):
         return self.linear(self.cnn(observations['observation']))
     
 
+class GoalMinigridFeaturesExtractor_PM(BaseFeaturesExtractor):
+    def __init__(self, observation_space: gym.Space, features_dim1: int = 512, features_dim2: int = 512) -> None:
+        observation_space = observation_space['observation']
+        super().__init__(observation_space, features_dim2)
+        n_input_channels = observation_space.shape[0]
+        self.cnn = nn.Sequential(
+            nn.Conv2d(n_input_channels, 16, (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, (2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, (2, 2)),
+            nn.ReLU(),
+            nn.Flatten(),
+        )
+
+        # Compute shape by doing one forward pass
+        with torch.no_grad():
+            n_flatten = self.cnn(torch.as_tensor(observation_space.sample()[None]).float()).shape[1]
+
+        self.linear = nn.Sequential(nn.Linear(n_flatten, features_dim1), nn.ReLU(), nn.Linear(features_dim1, features_dim2), nn.ReLU())
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        return self.linear(self.cnn(observations['observation']))
+    
+
 class GoalMlpExtractor(nn.Module):
 
     def __init__(
@@ -72,6 +97,7 @@ class GoalMlpExtractor(nn.Module):
         value_net: list[list[nn.Module]] =  [[] for _ in range(16)]
         last_layer_dim_pi = feature_dim
         last_layer_dim_vf = feature_dim
+        print(feature_dim)
 
         # save dimensions of layers in policy and value nets
         if isinstance(net_arch, dict):

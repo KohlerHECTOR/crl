@@ -5,3 +5,5 @@ experiments/minigridenv/
 experiments/__pycache__/
 experiments/results_mt/
 policies/
+experiments/bottlenecking/
+*.png
