@@ -697,31 +697,32 @@ class Smoothed_curve_NW:
 if __name__ == '__main__':
     #make csv
 
-    all_data = []
-    for s in range(20):
-        for feats in [2**i for i in range(7, 14)]:
-            try:
-                file = f'bottlenecking_minatar/breakout/arch_{feats}/seed_{s}/.monitor.csv'
-                df = pd.read_csv(file,header=1)
-                x = np.cumsum(df['l'])
-                y = df['r']
-                n_simu = [s for _ in range(len(y))]
-                name = [f'dim(z)={feats}' for _ in range(len(y))]
+    # all_data = []
+    # for s in range(10):
+    #     for feats in [128, 144, 152, 156, 158, 159, 160]:
+    #         try:
+    #             file = f'breakout/arch_{feats}/seed_{s}/.monitor.csv'
+    #             df = pd.read_csv(file,header=1)
+    #             x = np.cumsum(df['l'])
+    #             y = df['r']
+    #             n_simu = [s for _ in range(len(y))]
+    #             name = [f'dim(z)={feats}' for _ in range(len(y))]
                 
-                # Add data to the list
-                for i in range(len(y)):
-                    all_data.append({
-                        'x': x[i],
-                        'y': y[i],
-                        'n_simu': n_simu[i],
-                        'name': name[i]
-                    })
-            except FileNotFoundError:
-                continue
+    #             # Add data to the list
+    #             for i in range(len(y)):
+    #                 all_data.append({
+    #                     'x': x[i],
+    #                     'y': y[i],
+    #                     'n_simu': n_simu[i],
+    #                     'name': name[i]
+    #                 })
+    #         except FileNotFoundError:
+    #             continue
     
-    # Create DataFrame from all collected data
-    data_df = pd.DataFrame(all_data)
-    print(f"Created DataFrame with {len(data_df)} rows")
-    print(data_df.head())
-    data_df.to_csv('bottlenecking_minatar/breakout.csv')
-    plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname='test_plot_breakout.png')
+    # # Create DataFrame from all collected data
+    # data_df = pd.DataFrame(all_data)
+    # print(f"Created DataFrame with {len(data_df)} rows")
+    # print(data_df.head())
+    # data_df.to_csv('breakout.csv')
+    data_df = pd.read_csv('breakout.csv')
+    plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname='test_plot_breakout.png', smoothing_bandwidth=5000)
