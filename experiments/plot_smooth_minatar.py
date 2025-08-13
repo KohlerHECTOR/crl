@@ -220,7 +220,6 @@ def plot_writer_data(
     else:
         return data
 
-
 def plot_curves_smoothed_NW(
     data,
     x,
@@ -233,6 +232,7 @@ def plot_curves_smoothed_NW(
     show=True,
     savefig_fname=None,
     linestyles=False,
+    title_subplot=None,
 ):
     """
     Plot the performances contained in the data (see data parameter to learn what format it should be).
@@ -361,6 +361,7 @@ def plot_curves_smoothed_NW(
             mu[id_plot],
             label=name,
             color=cmap[id_c],
+            linewidth=2,
             linestyle=(0, styles[id_c]),
         )
         data_smoothed = pd.concat(
@@ -442,14 +443,17 @@ def plot_curves_smoothed_NW(
                     color=cmap[id_c],
                 )
 
-    ax.set_ylabel(ylabel)
-    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Cumulative Rewards (training)', fontdict={'fontsize':15})
+    ax.set_xlabel('Steps', fontdict={'fontsize':15})
+    ax.grid(True, 'both')
+    ax.tick_params('both', labelsize='large')
     # Shrink current axis by 20%
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
     # Put a legend to the right of the current axis
-    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    ax.set_title(title_subplot, fontdict={'fontsize':18})
+    ax.legend(loc="center left", bbox_to_anchor=(1.1, 0.5))
 
     if show:
         plt.show()
@@ -457,7 +461,6 @@ def plot_curves_smoothed_NW(
         plt.gcf().savefig(savefig_fname)
 
     return data_smoothed
-
 
 def plot_curves_with_same_x(
     data,
@@ -696,33 +699,35 @@ class Smoothed_curve_NW:
 
 if __name__ == '__main__':
     #make csv
-
-    # all_data = []
-    # for s in range(10):
-    #     for feats in [128, 144, 152, 156, 158, 159, 160]:
-    #         try:
-    #             file = f'breakout/arch_{feats}/seed_{s}/.monitor.csv'
-    #             df = pd.read_csv(file,header=1)
-    #             x = np.cumsum(df['l'])
-    #             y = df['r']
-    #             n_simu = [s for _ in range(len(y))]
-    #             name = [f'dim(z)={feats}' for _ in range(len(y))]
-                
-    #             # Add data to the list
-    #             for i in range(len(y)):
-    #                 all_data.append({
-    #                     'x': x[i],
-    #                     'y': y[i],
-    #                     'n_simu': n_simu[i],
-    #                     'name': name[i]
-    #                 })
-    #         except FileNotFoundError:
-    #             continue
-    
-    # # Create DataFrame from all collected data
-    # data_df = pd.DataFrame(all_data)
-    # print(f"Created DataFrame with {len(data_df)} rows")
-    # print(data_df.head())
-    # data_df.to_csv('breakout.csv')
-    data_df = pd.read_csv('breakout.csv')
-    plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname='test_plot_breakout.png', smoothing_bandwidth=5000)
+    bottle = [128, 64, 32, 16, 8, 4, 2]
+    for g in ['seaquest', 'space_invaders', 'freeway', 'breakout', 'asterix']:
+        all_data = []
+        for s in range(10):
+            for i, feats in enumerate([128, 144, 152, 156, 158, 159, 160]):
+                try:
+                    file = f'{g}/arch_{feats}/seed_{s}/.monitor.csv'
+                    df = pd.read_csv(file,header=1)
+                    x = np.cumsum(df['l'])
+                    y = df['r']
+                    n_simu = [s for _ in range(len(y))]
+                    name = [f'{bottle[i]}' for _ in range(len(y))]
+                    
+                    # Add data to the list
+                    for i in range(len(y)):
+                        all_data.append({
+                            'x': x[i],
+                            'y': y[i],
+                            'n_simu': n_simu[i],
+                            'name': name[i]
+                        })
+                except FileNotFoundError:
+                    continue
+        
+        # Create DataFrame from all collected data
+        data_df = pd.DataFrame(all_data)
+        print(f"Created DataFrame with {len(data_df)} rows")
+        print(data_df.head())
+        data_df.to_csv(f'{g}.csv')
+        # data_df = pd.read_csv('space_invaders.csv')
+        plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname=f'test_plot_{g}.png', smoothing_bandwidth=20000, title_subplot=f'DQN - {g}')
+        plt.clf()

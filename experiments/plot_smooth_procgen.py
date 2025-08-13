@@ -233,7 +233,6 @@ def plot_curves_smoothed_NW(
     show=True,
     savefig_fname=None,
     linestyles=False,
-    title_subplot=None,
 ):
     """
     Plot the performances contained in the data (see data parameter to learn what format it should be).
@@ -362,7 +361,6 @@ def plot_curves_smoothed_NW(
             mu[id_plot],
             label=name,
             color=cmap[id_c],
-            linewidth=2,
             linestyle=(0, styles[id_c]),
         )
         data_smoothed = pd.concat(
@@ -444,17 +442,14 @@ def plot_curves_smoothed_NW(
                     color=cmap[id_c],
                 )
 
-    ax.set_ylabel('Cumulative Rewards (training)', fontdict={'fontsize':15})
-    ax.set_xlabel('Steps', fontdict={'fontsize':15})
-    ax.grid(True, 'both')
-    ax.tick_params('both', labelsize='large')
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel(xlabel)
     # Shrink current axis by 20%
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
     # Put a legend to the right of the current axis
-    ax.set_title(title_subplot, fontdict={'fontsize':18})
-    ax.legend(loc="center left", bbox_to_anchor=(1.1, 0.5))
+    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
 
     if show:
         plt.show()
@@ -462,6 +457,7 @@ def plot_curves_smoothed_NW(
         plt.gcf().savefig(savefig_fname)
 
     return data_smoothed
+
 
 def plot_curves_with_same_x(
     data,
@@ -699,86 +695,38 @@ class Smoothed_curve_NW:
         return self.Hmatrix.dot(y)
 
 if __name__ == '__main__':
-    # df = pd.read_csv('bottlenecking/res.csv', header=0)
-    # plot_curves_smoothed_NW(df, 'x', 'y', show=False, savefig_fname='test_plot.png')
-    # #make csv
-
-    # Parallelized version using joblib
-    from joblib import Parallel, delayed
-    import os
-    
-    def process_file(s, feats, bottle):
-        """Process a single file and return DataFrame or None if file not found"""
-        file = f'MPFE_{feats}/gcrl_seed_{s}/.monitor.csv'
-        if not os.path.exists(file):
-            return None
+    #make csv
+    for g in ['caveflyer', 'chaser']:
+        all_data = []
+        for s in range(10):
+            for feats in [128, 149, 160, 165, 168, 170]:
+                try:
+                    if g == 'caveflyer':
+                        file = f'Procgen_{g}/arch_{feats}/seed_{s}/.monitor.csv'
+                    else:
+                        file = f'Procgen_{g}/arch_{feats}/seed_{s}/monitor.csv'
+                    print(file)
+                    df = pd.read_csv(file,header=1)
+                    x = np.cumsum(df['l'])
+                    y = df['r']
+                    n_simu = [s for _ in range(len(y))]
+                    name = [f'dim(z)={feats}' for _ in range(len(y))]
+                    # Add data to the list
+                    for i in range(len(y)):
+                        all_data.append({
+                            'x': x[i],
+                            'y': y[i],
+                            'n_simu': n_simu[i],
+                            'name': name[i]
+                        })
+                except FileNotFoundError:
+                    continue
         
-        try:
-            df = pd.read_csv(file, header=1)
-            x = np.cumsum(df['l'])
-            y = df['r']
-            
-            return pd.DataFrame({
-                'x': x,
-                'y': y,
-                'n_simu': s,
-                'name': f'{bottle}'
-            })
-        except Exception:
-            return None
-    
-    # Create all combinations of seeds and feature dimensions
-    seeds = range(10)
-    feats_list = [1, 128, 512, 820, 1024, 1145, 1210, 1245, 1262, 1271, 1276]
-    bottles = [2048, 1024, 512, 256, 128, 64, 32, 16, 8, 4, 2]
-    
-    # Process files in parallel
-    results = Parallel(n_jobs=-1, verbose=1)(
-        delayed(process_file)(s, feats, bottles[j]) 
-        for s in seeds 
-        for j, feats in enumerate(feats_list)
-    )
-    
-    # Filter out None results and concatenate
-    valid_results = [r for r in results if r is not None]
-    data_df = pd.concat(valid_results, ignore_index=True) if valid_results else pd.DataFrame()
-    print(f"Created DataFrame with {len(data_df)} rows")
-    print(data_df.head())
-    data_df.to_csv('multi_task.csv')
-    plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname='test_multitask.png', smoothing_bandwidth=20000, title_subplot='PPO - Multi-task')
-    
-    # Alternative: Parallel processing version (uncomment if you have many files)
-    # from multiprocessing import Pool
-    # def process_file(args):
-    #     s, feats = args
-    #     try:
-    #         file = f'MPFE_{feats}/gcrl_seed_{s}/.monitor.csv'
-    #         df = pd.read_csv(file, header=1)
-    #         x = np.cumsum(df['l'])
-    #         y = df['r']
-    #         return pd.DataFrame({
-    #             'x': x, 'y': y, 'n_simu': s, 'name': f'dim(z)={feats}'
-    #         })
-    #     except FileNotFoundError:
-    #         return None
-    # 
-    # args_list = [(s, feats) for s in range(10) for feats in [1024, 1145, 1210, 1245, 1262, 1271, 1276]]
-    # with Pool() as pool:
-    #     results = pool.map(process_file, args_list)
-    # data_df = pd.concat([r for r in results if r is not None], ignore_index=True)
-    
-    # Alternative: Pre-check file existence (uncomment for even more speed)
-    # import os
-    # all_data = []
-    # for s in range(10):
-    #     for feats in [1024, 1145, 1210, 1245, 1262, 1271, 1276]:
-    #         file = f'MPFE_{feats}/gcrl_seed_{s}/.monitor.csv'
-    #         if os.path.exists(file):  # Faster than try/except
-    #             df = pd.read_csv(file, header=1)
-    #             x = np.cumsum(df['l'])
-    #             y = df['r']
-    #             temp_df = pd.DataFrame({
-    #                 'x': x, 'y': y, 'n_simu': s, 'name': f'dim(z)={feats}'
-    #             })
-    #             all_data.append(temp_df)
-    # data_df = pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
+        # Create DataFrame from all collected data
+        data_df = pd.DataFrame(all_data)
+        print(f"Created DataFrame with {len(data_df)} rows")
+        print(data_df.head())
+        data_df.to_csv(f'{g}.csv')
+        # data_df = pd.read_csv('space_invaders.csv')
+        plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname=f'test_plot_{g}.png', smoothing_bandwidth=5000)
+        plt.clf()

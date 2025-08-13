@@ -233,6 +233,7 @@ def plot_curves_smoothed_NW(
     show=True,
     savefig_fname=None,
     linestyles=False,
+    title_subplot=None,
 ):
     """
     Plot the performances contained in the data (see data parameter to learn what format it should be).
@@ -361,6 +362,7 @@ def plot_curves_smoothed_NW(
             mu[id_plot],
             label=name,
             color=cmap[id_c],
+            linewidth=2,
             linestyle=(0, styles[id_c]),
         )
         data_smoothed = pd.concat(
@@ -442,14 +444,17 @@ def plot_curves_smoothed_NW(
                     color=cmap[id_c],
                 )
 
-    ax.set_ylabel(ylabel)
-    ax.set_xlabel(xlabel)
+    ax.set_ylabel('Cumulative Rewards (training)', fontdict={'fontsize':15})
+    ax.set_xlabel('Steps', fontdict={'fontsize':15})
+    ax.grid(True, 'both')
+    ax.tick_params('both', labelsize='large')
     # Shrink current axis by 20%
     box = ax.get_position()
     ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
     # Put a legend to the right of the current axis
-    ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    ax.set_title(title_subplot, fontdict={'fontsize':18})
+    ax.legend(loc="center left", bbox_to_anchor=(1.1, 0.5))
 
     if show:
         plt.show()
@@ -696,17 +701,22 @@ class Smoothed_curve_NW:
 
 if __name__ == '__main__':
     #make csv
-
+    bottle = [1024, 512, 256, 128, 64, 32, 16, 8, 4]
+    hc = [8, 94, 256, 552, 1046, 1766, 2635, 3471, 4117]
+    ant =  [27, 117, 256, 441, 647, 804, 9191, 990, 1029]
+    walker = [8, 94, 256, 552, 1046, 1766, 2635, 3471, 4117]
+    swimmer = [6, 91, 256, 571, 1143, 2098, 3492, 5173, 6789]
+    hopper = [7, 92, 256, 565, 1008, 1972, 3145, 4435, 5564]
     all_data = []
-    for s in range(20):
-        for feats in [2**i for i in range(7, 14)]:
+    for s in range(10):
+        for i, feats in enumerate(swimmer):
             try:
-                file = f'bottlenecking_mujoco/HalfCheetah/arch_{feats}/seed_{s}/.monitor.csv'
+                file = f'Swimmer/arch_{feats}/seed_{s}/.monitor.csv'
                 df = pd.read_csv(file,header=1)
                 x = np.cumsum(df['l'])
                 y = df['r']
                 n_simu = [s for _ in range(len(y))]
-                name = [f'dim(z)={feats}' for _ in range(len(y))]
+                name = [f'{bottle[i]}' for _ in range(len(y))]
                 
                 # Add data to the list
                 for i in range(len(y)):
@@ -723,5 +733,5 @@ if __name__ == '__main__':
     data_df = pd.DataFrame(all_data)
     print(f"Created DataFrame with {len(data_df)} rows")
     print(data_df.head())
-    data_df.to_csv('bottlenecking_minatar/HalfCheetah.csv')
-    plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname='test_plot_HC.png')
+    data_df.to_csv('Swimmer.csv')
+    plot_curves_smoothed_NW(data_df, 'x', 'y', show=False, savefig_fname='test_plot_swimmer.png', smoothing_bandwidth=20000, title_subplot='SAC - Swimmer')
